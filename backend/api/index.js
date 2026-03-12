@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./database');
-const { Trip, Expense, Document } = require('./models');
+const connectDB = require('../database');
+const { Trip, Expense, Document } = require('../models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
