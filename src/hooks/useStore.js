@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
-const API_URL = import.meta.env.VITE_API_URL || '';// --- TRIPS STORE ---
+const API_URL = import.meta.env.VITE_API_URL || 'https://travelplanner-t7ef.vercel.app';// --- TRIPS STORE ---
 export function useTrips() {
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
