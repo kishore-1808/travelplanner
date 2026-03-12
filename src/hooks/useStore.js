@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 
-// --- TRIPS STORE ---
+const API_URL = import.meta.env.VITE_API_URL || '';// --- TRIPS STORE ---
 export function useTrips() {
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchTrips = useCallback(async () => {
     try {
-      const res = await fetch('/api/trips')
+      const res = await fetch(`${API_URL}/api/trips`)
       const data = await res.json()
       setTrips(data)
     } catch (err) {
@@ -23,7 +23,7 @@ export function useTrips() {
 
   const addTrip = useCallback(async (trip) => {
     try {
-      const res = await fetch('/api/trips', {
+      const res = await fetch(`${API_URL}/api/trips`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trip),
@@ -38,7 +38,7 @@ export function useTrips() {
 
   const updateTrip = useCallback(async (id, updates) => {
     try {
-      const res = await fetch(`/api/trips/${id}`, {
+      const res = await fetch(`${API_URL}/api/trips/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -53,7 +53,7 @@ export function useTrips() {
 
   const deleteTrip = useCallback(async (id) => {
     try {
-      const res = await fetch(`/api/trips/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/trips/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setTrips(prev => prev.filter(t => t.id !== id))
       }
@@ -88,7 +88,7 @@ export function useDocuments() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const res = await fetch('/api/documents')
+      const res = await fetch(`${API_URL}/api/documents`)
       const data = await res.json()
       setDocuments(data)
     } catch (err) {
@@ -104,7 +104,7 @@ export function useDocuments() {
 
   const addDocument = useCallback(async (doc) => {
     try {
-      const res = await fetch('/api/documents', {
+      const res = await fetch(`${API_URL}/api/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(doc),
@@ -125,7 +125,7 @@ export function useDocuments() {
 
   const deleteDocument = useCallback(async (id) => {
     try {
-      const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/documents/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setDocuments(prev => prev.filter(d => d.id !== id))
       }
@@ -144,7 +144,7 @@ export function useExpenses() {
 
   const fetchExpenses = useCallback(async () => {
     try {
-      const res = await fetch('/api/expenses')
+      const res = await fetch(`${API_URL}/api/expenses`)
       const data = await res.json()
       setExpenses(data)
     } catch (err) {
@@ -160,7 +160,7 @@ export function useExpenses() {
 
   const addExpense = useCallback(async (expense) => {
     try {
-      const res = await fetch('/api/expenses', {
+      const res = await fetch(`${API_URL}/api/expenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(expense),
@@ -175,7 +175,7 @@ export function useExpenses() {
 
   const deleteExpense = useCallback(async (id) => {
     try {
-      const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/expenses/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setExpenses(prev => prev.filter(e => e.id !== id))
       }
