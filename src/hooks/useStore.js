@@ -21,9 +21,7 @@ const useGlobalStore = create((set, get) => ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Signup failed');
       
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      set({ user: data.user, token: data.token, authLoading: false });
+      set({ authLoading: false });
       return true;
     } catch (err) {
       set({ authError: err.message, authLoading: false });

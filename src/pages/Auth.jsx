@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { Plane, LogIn, UserPlus } from 'lucide-react';
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,10 +22,16 @@ export default function Auth() {
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSignupSuccess(false);
     if (isLogin) {
       await login(email, password);
     } else {
-      await signup(name, email, password);
+      const success = await signup(name, email, password);
+      if (success) {
+        setIsLogin(true);
+        setSignupSuccess(true);
+        setPassword(''); // Clear password for login
+      }
     }
   };
   
@@ -40,6 +47,15 @@ export default function Auth() {
         </div>
         
         {authError && <div className="auth-error">{authError}</div>}
+        {signupSuccess && !authError && (
+          <div className="auth-success" style={{
+            background: '#dcfce7', color: '#166534', padding: '1rem', 
+            borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.9rem', 
+            fontWeight: '500', textAlign: 'center', border: '1px solid #bbf7d0'
+          }}>
+            Account created successfully! Please log in to continue.
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="auth-form">
           {!isLogin && (
