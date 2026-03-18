@@ -1,7 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('../database');
-const { Trip, Expense, Document } = require('../models');
+const { User, Trip, Expense, Document } = require('../models');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,12 +18,53 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// --- AUTH API ---
+
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ error: 'User already exists' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user = new User({ name, email, password: hashedPassword });
+    await user.save();
+
+    const payload = { userId: user._id };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret_for_dev', { expiresIn: '7d' });
+
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+    const payload = { userId: user._id };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret_for_dev', { expiresIn: '7d' });
+
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- TRIPS API ---
 
 // Get all trips
-app.get('/api/trips', async (req, res) => {
+app.get('/api/trips', auth, async (req, res) => {
   try {
-    const trips = await Trip.find().sort({ createdAt: -1 });
+    const trips = await Trip.find({ userId: req.user.id }).sort({ createdAt: -1 });
     // Map _id back to id for frontend compatibility
     res.json(trips.map(trip => ({ ...trip.toObject(), id: trip._id.toString() })));
   } catch (err) {
@@ -29,12 +73,12 @@ app.get('/api/trips', async (req, res) => {
 });
 
 // Add a trip
-app.post('/api/trips', async (req, res) => {
+app.post('/api/trips', auth, async (req, res) => {
   try {
     const { name, destination, description, startDate, endDate, budget, imageUrl, status, createdAt } = req.body;
     
     const newTrip = new Trip({
-      name, destination, description, startDate, endDate, budget, imageUrl, status, createdAt
+      userId: req.user.id, name, destination, description, startDate, endDate, budget, imageUrl, status, createdAt
     });
 
     const savedTrip = await newTrip.save();
@@ -45,19 +89,19 @@ app.post('/api/trips', async (req, res) => {
 });
 
 // Update a trip
-app.put('/api/trips/:id', async (req, res) => {
+app.put('/api/trips/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, destination, description, startDate, endDate, budget, imageUrl, status } = req.body;
     
-    // Using findByIdAndUpdate
-    const updatedTrip = await Trip.findByIdAndUpdate(
-      id, 
+    // Using findOneAndUpdate
+    const updatedTrip = await Trip.findOneAndUpdate(
+      { _id: id, userId: req.user.id }, 
       { name, destination, description, startDate, endDate, budget, imageUrl, status },
       { new: true } // Return updated doc
     );
 
-    if (!updatedTrip) return res.status(404).json({ error: 'Trip not found' });
+    if (!updatedTrip) return res.status(404).json({ error: 'Trip not found or unauthorized' });
     res.json({ updated: 1, ...updatedTrip.toObject(), id: updatedTrip._id.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -65,14 +109,14 @@ app.put('/api/trips/:id', async (req, res) => {
 });
 
 // Delete a trip
-app.delete('/api/trips/:id', async (req, res) => {
+app.delete('/api/trips/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedTrip = await Trip.findByIdAndDelete(id);
-    if (!deletedTrip) return res.status(404).json({ error: 'Trip not found' });
+    const deletedTrip = await Trip.findOneAndDelete({ _id: id, userId: req.user.id });
+    if (!deletedTrip) return res.status(404).json({ error: 'Trip not found or unauthorized' });
     
     // Also explicitly delete expenses connected to it
-    await Expense.deleteMany({ tripId: id });
+    await Expense.deleteMany({ tripId: id, userId: req.user.id });
     
     res.json({ deleted: 1 });
   } catch (err) {
@@ -83,9 +127,9 @@ app.delete('/api/trips/:id', async (req, res) => {
 // --- EXPENSES API ---
 
 // Get all expenses
-app.get('/api/expenses', async (req, res) => {
+app.get('/api/expenses', auth, async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ createdAt: -1 });
+    const expenses = await Expense.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(expenses.map(exp => ({ ...exp.toObject(), id: exp._id.toString(), tripId: exp.tripId.toString() })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -93,12 +137,12 @@ app.get('/api/expenses', async (req, res) => {
 });
 
 // Add an expense
-app.post('/api/expenses', async (req, res) => {
+app.post('/api/expenses', auth, async (req, res) => {
   try {
     const { tripId, description, amount, category, createdAt } = req.body;
     
     const newExpense = new Expense({
-      tripId, description, amount, category, createdAt
+      userId: req.user.id, tripId, description, amount, category, createdAt
     });
 
     const savedExpense = await newExpense.save();
@@ -109,11 +153,11 @@ app.post('/api/expenses', async (req, res) => {
 });
 
 // Delete an expense
-app.delete('/api/expenses/:id', async (req, res) => {
+app.delete('/api/expenses/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedExpense = await Expense.findByIdAndDelete(id);
-    if (!deletedExpense) return res.status(404).json({ error: 'Expense not found' });
+    const deletedExpense = await Expense.findOneAndDelete({ _id: id, userId: req.user.id });
+    if (!deletedExpense) return res.status(404).json({ error: 'Expense not found or unauthorized' });
     res.json({ deleted: 1 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -123,9 +167,9 @@ app.delete('/api/expenses/:id', async (req, res) => {
 // --- DOCUMENTS API ---
 
 // Get all documents
-app.get('/api/documents', async (req, res) => {
+app.get('/api/documents', auth, async (req, res) => {
   try {
-    const docs = await Document.find().sort({ createdAt: -1 });
+    const docs = await Document.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(docs.map(doc => ({ ...doc.toObject(), id: doc._id.toString() })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -133,12 +177,12 @@ app.get('/api/documents', async (req, res) => {
 });
 
 // Add a document
-app.post('/api/documents', async (req, res) => {
+app.post('/api/documents', auth, async (req, res) => {
   try {
     const { name, type, number, expiryDate, fileData, fileName, createdAt } = req.body;
     
     const newDoc = new Document({
-      name, type, number, expiryDate, fileData, fileName, createdAt
+      userId: req.user.id, name, type, number, expiryDate, fileData, fileName, createdAt
     });
 
     const savedDoc = await newDoc.save();
@@ -154,11 +198,11 @@ app.post('/api/documents', async (req, res) => {
 });
 
 // Delete a document
-app.delete('/api/documents/:id', async (req, res) => {
+app.delete('/api/documents/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedDoc = await Document.findByIdAndDelete(id);
-    if (!deletedDoc) return res.status(404).json({ error: 'Document not found' });
+    const deletedDoc = await Document.findOneAndDelete({ _id: id, userId: req.user.id });
+    if (!deletedDoc) return res.status(404).json({ error: 'Document not found or unauthorized' });
     res.json({ deleted: 1 });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -4,17 +4,97 @@ import { create } from 'zustand'
 const API_URL = import.meta.env.VITE_API_URL || 'https://travelplanner-t7ef.vercel.app';
 
 const useGlobalStore = create((set, get) => ({
+  // --- AUTH ---
+  user: JSON.parse(localStorage.getItem('user')) || null,
+  token: localStorage.getItem('token') || null,
+  authError: null,
+  authLoading: false,
+  
+  signup: async (name, email, password) => {
+    set({ authLoading: true, authError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Signup failed');
+      
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      set({ user: data.user, token: data.token, authLoading: false });
+      return true;
+    } catch (err) {
+      set({ authError: err.message, authLoading: false });
+      return false;
+    }
+  },
+  
+  login: async (email, password) => {
+    set({ authLoading: true, authError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      set({ user: data.user, token: data.token, authLoading: false });
+      
+      // Load data on login
+      get().fetchTrips();
+      get().fetchDocuments();
+      get().fetchExpenses();
+      
+      return true;
+    } catch (err) {
+      set({ authError: err.message, authLoading: false });
+      return false;
+    }
+  },
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // Clear the store variables when logging out
+    set({ 
+      user: null, 
+      token: null,
+      trips: [], tripsFetched: false,
+      expenses: [], expensesFetched: false,
+      documents: [], docsFetched: false
+    });
+  },
+
+  // Helper function to get headers
+  getAuthHeaders: () => {
+    const token = get().token;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  },
+
   // --- TRIPS ---
   trips: [],
   tripsFetched: false,
   tripsLoading: false,
   fetchTrips: async () => {
-    if (get().tripsFetched) return;
+    if (get().tripsFetched || !get().token) return;
     set({ tripsLoading: true });
     try {
-      const res = await fetch(`${API_URL}/api/trips`);
+      const res = await fetch(`${API_URL}/api/trips`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       const data = await res.json();
-      set({ trips: data, tripsFetched: true });
+      if (res.ok) {
+        set({ trips: data, tripsFetched: true });
+      }
     } catch (err) {
       console.error('Failed to fetch trips:', err);
     } finally {
@@ -25,12 +105,14 @@ const useGlobalStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/trips`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: get().getAuthHeaders(),
         body: JSON.stringify(trip),
       });
       const newTrip = await res.json();
-      set(state => ({ trips: [newTrip, ...state.trips] }));
-      return newTrip;
+      if (res.ok) {
+        set(state => ({ trips: [newTrip, ...state.trips] }));
+        return newTrip;
+      }
     } catch (err) {
       console.error('Failed to add trip:', err);
     }
@@ -39,7 +121,7 @@ const useGlobalStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/trips/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: get().getAuthHeaders(),
         body: JSON.stringify(updates),
       });
       if (res.ok) {
@@ -51,7 +133,10 @@ const useGlobalStore = create((set, get) => ({
   },
   deleteTrip: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/trips/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/trips/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       if (res.ok) {
         set(state => ({ trips: state.trips.filter(t => t.id !== id) }));
       }
@@ -65,12 +150,16 @@ const useGlobalStore = create((set, get) => ({
   docsFetched: false,
   docsLoading: false,
   fetchDocuments: async () => {
-    if (get().docsFetched) return;
+    if (get().docsFetched || !get().token) return;
     set({ docsLoading: true });
     try {
-      const res = await fetch(`${API_URL}/api/documents`);
+      const res = await fetch(`${API_URL}/api/documents`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       const data = await res.json();
-      set({ documents: data, docsFetched: true });
+      if (res.ok) {
+        set({ documents: data, docsFetched: true });
+      }
     } catch (err) {
       console.error('Failed to fetch documents:', err);
     } finally {
@@ -81,20 +170,25 @@ const useGlobalStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/documents`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: get().getAuthHeaders(),
         body: JSON.stringify(doc),
       });
-      const newDoc = await res.json();
-      if (doc.fileData) newDoc.fileData = doc.fileData;
-      set(state => ({ documents: [newDoc, ...state.documents] }));
-      return newDoc;
+      if (res.ok) {
+        const newDoc = await res.json();
+        if (doc.fileData) newDoc.fileData = doc.fileData;
+        set(state => ({ documents: [newDoc, ...state.documents] }));
+        return newDoc;
+      }
     } catch (err) {
       console.error('Failed to add document:', err);
     }
   },
   deleteDocument: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/documents/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/documents/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       if (res.ok) {
         set(state => ({ documents: state.documents.filter(d => d.id !== id) }));
       }
@@ -108,12 +202,16 @@ const useGlobalStore = create((set, get) => ({
   expensesFetched: false,
   expensesLoading: false,
   fetchExpenses: async () => {
-    if (get().expensesFetched) return;
+    if (get().expensesFetched || !get().token) return;
     set({ expensesLoading: true });
     try {
-      const res = await fetch(`${API_URL}/api/expenses`);
+      const res = await fetch(`${API_URL}/api/expenses`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       const data = await res.json();
-      set({ expenses: data, expensesFetched: true });
+      if (res.ok) {
+        set({ expenses: data, expensesFetched: true });
+      }
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
     } finally {
@@ -124,19 +222,24 @@ const useGlobalStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/expenses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: get().getAuthHeaders(),
         body: JSON.stringify(expense),
       });
-      const newExp = await res.json();
-      set(state => ({ expenses: [newExp, ...state.expenses] }));
-      return newExp;
+      if (res.ok) {
+        const newExp = await res.json();
+        set(state => ({ expenses: [newExp, ...state.expenses] }));
+        return newExp;
+      }
     } catch (err) {
       console.error('Failed to add expense:', err);
     }
   },
   deleteExpense: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/expenses/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/expenses/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      });
       if (res.ok) {
         set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
       }
@@ -148,12 +251,28 @@ const useGlobalStore = create((set, get) => ({
 
 // --- EXPORTED HOOKS FOR COMPONENTS ---
 
+// Exporting the auth hook
+export function useAuth() {
+  const store = useGlobalStore();
+  
+  return {
+    user: store.user,
+    token: store.token,
+    authError: store.authError,
+    authLoading: store.authLoading,
+    login: store.login,
+    signup: store.signup,
+    logout: store.logout,
+    isAuthenticated: !!store.token
+  };
+}
+
 export function useTrips() {
   const store = useGlobalStore();
   
   useEffect(() => {
     store.fetchTrips();
-  }, [store.fetchTrips]); // eslint-disable-line
+  }, [store.fetchTrips, store.token]); // eslint-disable-line
 
   const getTrip = useCallback((id) => store.trips.find(t => t.id === id), [store.trips]);
   const getUpcomingTrips = useCallback(() => {
@@ -184,7 +303,7 @@ export function useDocuments() {
   
   useEffect(() => {
     store.fetchDocuments();
-  }, [store.fetchDocuments]); // eslint-disable-line
+  }, [store.fetchDocuments, store.token]); // eslint-disable-line
 
   return {
     documents: store.documents,
@@ -199,7 +318,7 @@ export function useExpenses() {
   
   useEffect(() => {
     store.fetchExpenses();
-  }, [store.fetchExpenses]); // eslint-disable-line
+  }, [store.fetchExpenses, store.token]); // eslint-disable-line
 
   const getExpensesByTrip = useCallback((tripId) => store.expenses.filter(e => e.tripId === tripId), [store.expenses]);
   const getTotalSpent = useCallback((tripId) => {

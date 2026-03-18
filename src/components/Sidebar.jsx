@@ -1,8 +1,9 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { 
   Plane, LayoutDashboard, MapPin, PlusCircle, 
-  Wallet, FileText, Globe 
+  Wallet, FileText, Globe, LogOut 
 } from 'lucide-react'
+import { useAuth } from '../hooks/useStore'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,6 +15,13 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/auth')
+  }
 
   return (
     <aside className="sidebar">
@@ -51,12 +59,25 @@ export default function Sidebar() {
       </div>
 
       {/* User Profile */}
-      <div className="sidebar-user">
-        <div className="sidebar-user-avatar">T</div>
-        <div className="sidebar-user-info">
-          <h4>Traveler</h4>
-          <p>Plan your adventures</p>
+      <div className="sidebar-user" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="sidebar-user-avatar">
+            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div className="sidebar-user-info">
+            <h4>{user?.name || 'Traveler'}</h4>
+            <p style={{ fontSize: '0.8rem', opacity: 0.8, maxWidth: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user?.email || 'Plan your adventures'}
+            </p>
+          </div>
         </div>
+        <button 
+          onClick={handleLogout} 
+          title="Logout" 
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '5px' }}
+        >
+          <LogOut size={20} />
+        </button>
       </div>
     </aside>
   )

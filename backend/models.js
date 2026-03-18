@@ -1,7 +1,16 @@
 const mongoose = require('mongoose');
 
+// User Schema
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+});
+
 // Trip Schema
 const tripSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
   destination: { type: String, required: true },
   description: { type: String },
@@ -15,6 +24,7 @@ const tripSchema = new mongoose.Schema({
 
 // Expense Schema
 const expenseSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   tripId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
   description: { type: String, required: true },
   amount: { type: Number, required: true },
@@ -24,6 +34,7 @@ const expenseSchema = new mongoose.Schema({
 
 // Document Schema
 const documentSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
   type: { type: String, default: 'other' },
   number: { type: String },
@@ -33,11 +44,13 @@ const documentSchema = new mongoose.Schema({
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
+const User = mongoose.model('User', userSchema);
 const Trip = mongoose.model('Trip', tripSchema);
 const Expense = mongoose.model('Expense', expenseSchema);
 const Document = mongoose.model('Document', documentSchema);
 
 module.exports = {
+  User,
   Trip,
   Expense,
   Document
