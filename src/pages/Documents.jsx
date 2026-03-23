@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { 
   Plus, FileText, CreditCard, Plane as PlaneIcon, 
-  Shield, File, Calendar, Trash2, X, Download
+  Shield, File, Calendar, Trash2, X, Download, Eye
 } from 'lucide-react'
 import { useDocuments } from '../hooks/useStore'
 
@@ -17,6 +17,7 @@ const DOCUMENT_TYPES = [
 export default function Documents() {
   const { documents, addDocument, deleteDocument } = useDocuments()
   const [showForm, setShowForm] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState(null)
   const [form, setForm] = useState({
     name: '',
     type: 'passport',
@@ -62,6 +63,33 @@ export default function Documents() {
   const getDocLabel = (type) => {
     const dt = DOCUMENT_TYPES.find(d => d.value === type)
     return dt ? dt.label : 'Other'
+  }
+
+  const isImageFile = (fileData, fileName) => {
+    if (!fileData) return false
+    if (fileData.startsWith('data:image/')) return true
+    if (fileName) {
+      const ext = fileName.toLowerCase().split('.').pop()
+      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+    }
+    return false
+  }
+
+  const isPdfFile = (fileData, fileName) => {
+    if (!fileData) return false
+    if (fileData.startsWith('data:application/pdf')) return true
+    if (fileName) {
+      return fileName.toLowerCase().endsWith('.pdf')
+    }
+    return false
+  }
+
+  const handlePreview = (doc) => {
+    setPreviewDoc(doc)
+  }
+
+  const closePreview = () => {
+    setPreviewDoc(null)
   }
 
   return (
@@ -206,6 +234,16 @@ export default function Documents() {
                 </div>
                 <div className="document-actions">
                   {doc.fileData && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => handlePreview(doc)}
+                      style={{ padding: '6px 10px' }}
+                      title="Preview Document"
+                    >
+                      <Eye size={14} />
+                    </button>
+                  )}
+                  {doc.fileData && (
                     <a 
                       href={doc.fileData} 
                       download={doc.fileName || 'document'} 
@@ -243,6 +281,92 @@ export default function Documents() {
                 Add Your First Document
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewDoc && (
+        <div className="preview-overlay" onClick={closePreview}>
+          <div className="preview-modal" onClick={e => e.stopPropagation()}>
+            <div className="preview-modal-header">
+              <div className="preview-modal-title">
+                <Eye size={18} style={{ color: 'var(--primary)' }} />
+                <h3>{previewDoc.name}</h3>
+                <span className="preview-type-badge">{getDocLabel(previewDoc.type)}</span>
+              </div>
+              <div className="preview-modal-actions">
+                {previewDoc.fileData && (
+                  <a
+                    href={previewDoc.fileData}
+                    download={previewDoc.fileName || 'document'}
+                    className="btn btn-outline btn-sm"
+                    title="Download"
+                  >
+                    <Download size={14} />
+                    Download
+                  </a>
+                )}
+                <button className="btn btn-accent btn-sm" onClick={closePreview}>
+                  <X size={14} />
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Document Metadata */}
+            <div className="preview-meta-bar">
+              {previewDoc.number && (
+                <span className="preview-meta-item">
+                  <FileText size={13} />
+                  {previewDoc.number}
+                </span>
+              )}
+              {previewDoc.expiryDate && (
+                <span className="preview-meta-item">
+                  <Calendar size={13} />
+                  Expires {new Date(previewDoc.expiryDate).toLocaleDateString()}
+                </span>
+              )}
+              {previewDoc.fileName && (
+                <span className="preview-meta-item">
+                  <File size={13} />
+                  {previewDoc.fileName}
+                </span>
+              )}
+            </div>
+
+            {/* Preview Content */}
+            <div className="preview-content">
+              {isImageFile(previewDoc.fileData, previewDoc.fileName) ? (
+                <img
+                  src={previewDoc.fileData}
+                  alt={previewDoc.name}
+                  className="preview-image"
+                />
+              ) : isPdfFile(previewDoc.fileData, previewDoc.fileName) ? (
+                <iframe
+                  src={previewDoc.fileData}
+                  title={previewDoc.name}
+                  className="preview-pdf"
+                />
+              ) : (
+                <div className="preview-unsupported">
+                  <File size={48} />
+                  <h4>Preview not available</h4>
+                  <p>This file type cannot be previewed. Please download to view.</p>
+                  <a
+                    href={previewDoc.fileData}
+                    download={previewDoc.fileName || 'document'}
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: 12 }}
+                  >
+                    <Download size={14} />
+                    Download File
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
