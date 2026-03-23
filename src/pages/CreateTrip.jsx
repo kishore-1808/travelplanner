@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ImagePlus, Sparkles } from 'lucide-react'
+import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown } from 'lucide-react'
 import { useTrips } from '../hooks/useStore'
+import { DESTINATION_CATEGORIES, DESTINATIONS } from '../data/destinationData'
 
 export default function CreateTrip() {
   const navigate = useNavigate()
@@ -9,6 +10,7 @@ export default function CreateTrip() {
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
 
   const [form, setForm] = useState({
     destination: '',
@@ -19,13 +21,84 @@ export default function CreateTrip() {
     budget: '',
   })
 
+  // Filter destinations by selected category
+  const filteredDestinations = useMemo(() => {
+    if (!selectedCategory) return DESTINATIONS
+    return DESTINATIONS.filter(d => d.category === selectedCategory)
+  }, [selectedCategory])
+
+  // Budget-based recommendations
+  const recommendations = useMemo(() => {
+    const budget = parseFloat(form.budget)
+    if (!budget || budget <= 0) return []
+
+    let filtered = DESTINATIONS.filter(
+      d => budget >= d.budgetRange.min && budget <= d.budgetRange.max * 1.5
+    )
+
+    // If category is selected, prioritize that category
+    if (selectedCategory) {
+      const inCategory = filtered.filter(d => d.category === selectedCategory)
+      const otherCategory = filtered.filter(d => d.category !== selectedCategory)
+      filtered = [...inCategory, ...otherCategory]
+    }
+
+    // Sort by closest match (budget closest to midpoint of range)
+    filtered.sort((a, b) => {
+      const midA = (a.budgetRange.min + a.budgetRange.max) / 2
+      const midB = (b.budgetRange.min + b.budgetRange.max) / 2
+      return Math.abs(budget - midA) - Math.abs(budget - midB)
+    })
+
+    return filtered.slice(0, 6)
+  }, [form.budget, selectedCategory])
+
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value)
+    setForm(prev => ({ ...prev, destination: '' }))
+  }
+
+  const handleDestinationChange = (e) => {
+    const dest = DESTINATIONS.find(d => d.name === e.target.value)
+    setForm(prev => ({ ...prev, destination: e.target.value }))
+    if (dest && !selectedCategory) {
+      setSelectedCategory(dest.category)
+    }
+  }
+
+  const handleRecommendationClick = (dest) => {
+    setSelectedCategory(dest.category)
+    setForm(prev => ({
+      ...prev,
+      destination: dest.name,
+      name: prev.name || `Trip to ${dest.name}`,
+      description: prev.description || dest.description,
+    }))
+    setImageUrl('')
+  }
+
+  const getCategoryLabel = (catId) => {
+    const cat = DESTINATION_CATEGORIES.find(c => c.id === catId)
+    return cat ? cat.label : catId
+  }
+
+  const getCategoryColor = (catId) => {
+    const cat = DESTINATION_CATEGORIES.find(c => c.id === catId)
+    return cat ? cat.color : '#64748B'
+  }
+
+  const formatBudget = (num) => {
+    if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`
+    return `₹${num}`
+  }
+
   const handleGenerateImage = async () => {
     if (!form.destination) {
-      alert('Please enter a destination to generate an image')
+      alert('Please select a destination to generate an image')
       return
     }
     setIsGenerating(true)
@@ -35,7 +108,7 @@ export default function CreateTrip() {
       if (data.originalimage && data.originalimage.source) {
         setImageUrl(data.originalimage.source)
       } else {
-        alert('Could not find a representative image for this destination. Try adding a country name.')
+        alert('Could not find a representative image for this destination. Try a different destination.')
       }
     } catch (err) {
       console.error('Error generating image', err)
@@ -60,7 +133,7 @@ export default function CreateTrip() {
       </button>
       <div className="page-header">
         <h1 className="page-title">Plan New Adventure</h1>
-        <p className="page-subtitle">Create your next amazing journey.</p>
+        <p className="page-subtitle">Create your next amazing journey with smart recommendations.</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -69,20 +142,77 @@ export default function CreateTrip() {
           <div>
             {/* Trip Details Card */}
             <div className="card" style={{ marginBottom: 24 }}>
-              <h3 className="card-title" style={{ marginBottom: 20 }}>Trip Details</h3>
+              <h3 className="card-title" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Compass size={20} style={{ color: 'var(--primary)' }} />
+                Trip Details
+              </h3>
+
+              {/* Category Dropdown */}
               <div className="form-group">
-                <label className="form-label" htmlFor="destination">Destination</label>
-                <input
-                  id="destination"
-                  name="destination"
-                  type="text"
-                  className="form-input"
-                  placeholder="Where are you going?"
-                  value={form.destination}
-                  onChange={handleChange}
-                  required
-                />
+                <label className="form-label" htmlFor="category">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Destination Category
+                  </span>
+                </label>
+                <div className="select-wrapper">
+                  <select
+                    id="category"
+                    name="category"
+                    className="form-select category-select"
+                    value={selectedCategory}
+                    onChange={handleCategoryChange}
+                  >
+                    <option value="">All Categories</option>
+                    {DESTINATION_CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="select-chevron" />
+                </div>
               </div>
+
+              {/* Destination Dropdown */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="destination">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={16} style={{ color: 'var(--primary)' }} />
+                    Destination
+                  </span>
+                </label>
+                <div className="select-wrapper">
+                  <select
+                    id="destination"
+                    name="destination"
+                    className="form-select"
+                    value={form.destination}
+                    onChange={handleDestinationChange}
+                    required
+                  >
+                    <option value="">Select a destination</option>
+                    {filteredDestinations.map(d => (
+                      <option key={d.name} value={d.name}>
+                        {d.name} — {d.state}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="select-chevron" />
+                </div>
+                {form.destination && (() => {
+                  const dest = DESTINATIONS.find(d => d.name === form.destination)
+                  return dest ? (
+                    <div className="destination-info-pill">
+                      <span className="rec-category-badge" style={{ background: `${getCategoryColor(dest.category)}18`, color: getCategoryColor(dest.category) }}>
+                        {getCategoryLabel(dest.category)}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {dest.state} • {formatBudget(dest.budgetRange.min)} – {formatBudget(dest.budgetRange.max)}
+                      </span>
+                    </div>
+                  ) : null
+                })()}
+              </div>
+
+              {/* Trip Name */}
               <div className="form-group">
                 <label className="form-label" htmlFor="name">Trip Name</label>
                 <input
@@ -95,6 +225,8 @@ export default function CreateTrip() {
                   onChange={handleChange}
                 />
               </div>
+
+              {/* Description */}
               <div className="form-group">
                 <label className="form-label" htmlFor="description">Description</label>
                 <textarea
@@ -110,7 +242,10 @@ export default function CreateTrip() {
 
             {/* Dates & Budget Card */}
             <div className="card" style={{ marginBottom: 24 }}>
-              <h3 className="card-title" style={{ marginBottom: 20 }}>Dates & Budget</h3>
+              <h3 className="card-title" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar size={20} style={{ color: 'var(--primary)' }} />
+                Dates & Budget
+              </h3>
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label" htmlFor="startDate">Start Date</label>
@@ -136,18 +271,75 @@ export default function CreateTrip() {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="budget">Total Budget (INR)</label>
+                <label className="form-label" htmlFor="budget">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <IndianRupee size={16} style={{ color: 'var(--success)' }} />
+                    Total Budget (INR)
+                  </span>
+                </label>
                 <input
                   id="budget"
                   name="budget"
                   type="number"
                   className="form-input"
-                  placeholder="0.00"
+                  placeholder="Enter your budget to get recommendations"
                   value={form.budget}
                   onChange={handleChange}
                 />
               </div>
             </div>
+
+            {/* Budget Recommendations */}
+            {recommendations.length > 0 && (
+              <div className="recommendation-section">
+                <div className="recommendation-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="recommendation-icon-wrap">
+                      <Star size={20} />
+                    </div>
+                    <div>
+                      <h3>Recommended for You</h3>
+                      <p>Based on your budget of ₹{parseFloat(form.budget).toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="recommendation-grid">
+                  {recommendations.map((dest, idx) => (
+                    <div
+                      key={dest.name}
+                      className={`recommendation-card ${form.destination === dest.name ? 'active' : ''}`}
+                      onClick={() => handleRecommendationClick(dest)}
+                      style={{ animationDelay: `${idx * 0.06}s` }}
+                    >
+                      <div className="rec-card-top">
+                        <div className="rec-card-name">
+                          <MapPin size={14} />
+                          <h4>{dest.name}</h4>
+                        </div>
+                        <span
+                          className="rec-category-badge"
+                          style={{ background: `${getCategoryColor(dest.category)}18`, color: getCategoryColor(dest.category) }}
+                        >
+                          {getCategoryLabel(dest.category)}
+                        </span>
+                      </div>
+                      <p className="rec-card-desc">{dest.description}</p>
+                      <div className="rec-card-meta">
+                        <span className="rec-meta-item">
+                          <IndianRupee size={12} />
+                          {formatBudget(dest.budgetRange.min)} – {formatBudget(dest.budgetRange.max)}
+                        </span>
+                        <span className="rec-meta-item">
+                          <Calendar size={12} />
+                          {dest.bestSeason}
+                        </span>
+                      </div>
+                      <div className="rec-card-state">{dest.state}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
@@ -186,6 +378,42 @@ export default function CreateTrip() {
                 </button>
               </div>
             </div>
+
+            {/* Selected destination info sidebar card */}
+            {form.destination && (() => {
+              const dest = DESTINATIONS.find(d => d.name === form.destination)
+              return dest ? (
+                <div className="card destination-sidebar-card">
+                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={16} style={{ color: 'var(--primary)' }} />
+                    {dest.name}
+                  </h4>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+                    {dest.description}
+                  </p>
+                  <div className="dest-sidebar-meta">
+                    <div className="dest-meta-row">
+                      <span className="dest-meta-label">State</span>
+                      <span className="dest-meta-value">{dest.state}</span>
+                    </div>
+                    <div className="dest-meta-row">
+                      <span className="dest-meta-label">Budget Range</span>
+                      <span className="dest-meta-value">{formatBudget(dest.budgetRange.min)} – {formatBudget(dest.budgetRange.max)}</span>
+                    </div>
+                    <div className="dest-meta-row">
+                      <span className="dest-meta-label">Best Season</span>
+                      <span className="dest-meta-value">{dest.bestSeason}</span>
+                    </div>
+                    <div className="dest-meta-row">
+                      <span className="dest-meta-label">Category</span>
+                      <span className="rec-category-badge" style={{ background: `${getCategoryColor(dest.category)}18`, color: getCategoryColor(dest.category), fontSize: 11 }}>
+                        {getCategoryLabel(dest.category)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null
+            })()}
           </div>
         </div>
       </form>
