@@ -1,9 +1,16 @@
 import { useState } from 'react'
 import { 
   Plus, FileText, CreditCard, Plane as PlaneIcon, 
-  Shield, File, Calendar, Trash2, X, Download, Eye
+  Shield, File, Calendar, Trash2, X, Download, Eye,
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { useDocuments } from '../hooks/useStore'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
+import 'react-pdf/dist/esm/Page/TextLayer.css'
+
+// Set up the PDF.js worker using a reliable CDN approach compatible with Vite
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 const DOCUMENT_TYPES = [
   { value: 'passport', label: 'Passport', icon: FileText },
@@ -26,6 +33,22 @@ export default function Documents() {
     fileData: null,
     fileName: '',
   })
+
+  // PDF Pagination State
+  const [numPages, setNumPages] = useState(null)
+  const [pageNumber, setPageNumber] = useState(1)
+
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages)
+    setPageNumber(1)
+  }
+
+  const changePage = (offset) => {
+    setPageNumber(prevPageNumber => prevPageNumber + offset)
+  }
+
+  const previousPage = () => changePage(-1)
+  const nextPage = () => changePage(1)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -86,10 +109,14 @@ export default function Documents() {
 
   const handlePreview = (doc) => {
     setPreviewDoc(doc)
+    setPageNumber(1)
+    setNumPages(null)
   }
 
   const closePreview = () => {
     setPreviewDoc(null)
+    setPageNumber(1)
+    setNumPages(null)
   }
 
   return (
@@ -334,6 +361,29 @@ export default function Documents() {
                   {previewDoc.fileName}
                 </span>
               )}
+              
+              {/* PDF Pagination Controls */}
+              {isPdfFile(previewDoc.fileData, previewDoc.fileName) && numPages > 1 && (
+                <div className="pdf-controls">
+                  <button 
+                    disabled={pageNumber <= 1} 
+                    onClick={previousPage}
+                    className="btn btn-outline btn-sm pdf-control-btn"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="pdf-page-info">
+                    Page {pageNumber} of {numPages}
+                  </span>
+                  <button 
+                    disabled={pageNumber >= numPages} 
+                    onClick={nextPage}
+                    className="btn btn-outline btn-sm pdf-control-btn"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Preview Content */}
@@ -345,11 +395,22 @@ export default function Documents() {
                   className="preview-image"
                 />
               ) : isPdfFile(previewDoc.fileData, previewDoc.fileName) ? (
-                <iframe
-                  src={previewDoc.fileData}
-                  title={previewDoc.name}
-                  className="preview-pdf"
-                />
+                <div className="preview-pdf-container">
+                  <Document
+                    file={previewDoc.fileData}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    loading={<div className="pdf-loading">Loading PDF...</div>}
+                    error={<div className="pdf-error">Failed to load PDF. Please download instead.</div>}
+                  >
+                    <Page 
+                      pageNumber={pageNumber} 
+                      renderTextLayer={false} 
+                      renderAnnotationLayer={false}
+                      className="react-pdf-page"
+                      width={Math.min(window.innerWidth * 0.8, 800)}
+                    />
+                  </Document>
+                </div>
               ) : (
                 <div className="preview-unsupported">
                   <File size={48} />
