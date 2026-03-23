@@ -6,8 +6,8 @@ import {
 } from 'lucide-react'
 import { useDocuments } from '../hooks/useStore'
 import { Document, Page, pdfjs } from 'react-pdf'
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
-import 'react-pdf/dist/esm/Page/TextLayer.css'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
 
 // Set up the PDF.js worker using the Vite-native approach (required for react-pdf v9+)
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
