@@ -9,8 +9,11 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
 import 'react-pdf/dist/esm/Page/TextLayer.css'
 
-// Set up the PDF.js worker using a reliable CDN approach compatible with Vite
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+// Set up the PDF.js worker using the Vite-native approach (required for react-pdf v9+)
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString()
 
 const DOCUMENT_TYPES = [
   { value: 'passport', label: 'Passport', icon: FileText },
