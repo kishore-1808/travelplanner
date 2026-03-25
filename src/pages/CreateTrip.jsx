@@ -90,17 +90,43 @@ export default function CreateTrip() {
 
   const handleFindHotels = (e, dest) => {
     e.stopPropagation()
-    const budget = parseFloat(form.budget)
-    let priceTag = ''
-    if (budget > 0) {
-      const perNight = budget / 5
-      if (perNight <= 2000) priceTag = 'budget+'
-      else if (perNight <= 5000) priceTag = 'mid+range+'
-      else priceTag = 'luxury+'
+    const budget = parseFloat(form.budget) || 10000
+    const maxPerNight = Math.round(budget / 5)
+    const { lat: destLat, lng: destLng } = dest.coordinates
+
+    const openHotelSearch = (userLat, userLng) => {
+      // Midpoint between user location and destination — centres map along the route
+      const midLat = ((userLat + destLat) / 2).toFixed(4)
+      const midLng = ((userLng + destLng) / 2).toFixed(4)
+
+      // Zoom level based on distance so the full route is visible
+      const dist = Math.sqrt(Math.pow(destLat - userLat, 2) + Math.pow(destLng - userLng, 2))
+      let zoom = 8
+      if (dist > 15) zoom = 5
+      else if (dist > 8) zoom = 6
+      else if (dist > 4) zoom = 7
+
+      const query = encodeURIComponent(`hotels under ₹${maxPerNight} per night`)
+      const url = `https://www.google.com/maps/search/${query}/@${midLat},${midLng},${zoom}z`
+      window.open(url, '_blank', 'noopener,noreferrer')
     }
-    const query = encodeURIComponent(`${priceTag}hotels near ${dest.name}, ${dest.state}, India`)
-    const url = `https://www.google.com/maps/search/${query}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+
+    // Fallback: search near destination with price cap
+    const fallback = () => {
+      const query = encodeURIComponent(`hotels under ₹${maxPerNight} per night near ${dest.name}, ${dest.state}, India`)
+      const url = `https://www.google.com/maps/search/${query}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => openHotelSearch(pos.coords.latitude, pos.coords.longitude),
+        () => fallback(),
+        { timeout: 5000 }
+      )
+    } else {
+      fallback()
+    }
   }
 
   const getCategoryLabel = (catId) => {
