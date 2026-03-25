@@ -36,11 +36,9 @@ export default function CreateTrip() {
       d => budget >= d.budgetRange.min && budget <= d.budgetRange.max * 1.5
     )
 
-    // If category is selected, prioritize that category
+    // If category is selected, show ONLY that category
     if (selectedCategory) {
-      const inCategory = filtered.filter(d => d.category === selectedCategory)
-      const otherCategory = filtered.filter(d => d.category !== selectedCategory)
-      filtered = [...inCategory, ...otherCategory]
+      filtered = filtered.filter(d => d.category === selectedCategory)
     }
 
     // Sort by closest match (budget closest to midpoint of range)
