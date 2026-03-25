@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown, Navigation, Hotel } from 'lucide-react'
+import { ArrowLeft, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown, Navigation, Hotel, X, CheckCircle } from 'lucide-react'
 import { useTrips } from '../hooks/useStore'
 import { DESTINATION_CATEGORIES, DESTINATIONS } from '../data/destinationData'
 
@@ -8,8 +8,7 @@ export default function CreateTrip() {
   const navigate = useNavigate()
   const { addTrip } = useTrips()
 
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [imageUrl, setImageUrl] = useState('')
+  const [showConfirm, setShowConfirm] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('')
 
   const [form, setForm] = useState({
@@ -63,8 +62,9 @@ export default function CreateTrip() {
   const handleDestinationChange = (e) => {
     const dest = DESTINATIONS.find(d => d.name === e.target.value)
     setForm(prev => ({ ...prev, destination: e.target.value }))
-    if (dest && !selectedCategory) {
-      setSelectedCategory(dest.category)
+    if (dest) {
+      if (!selectedCategory) setSelectedCategory(dest.category)
+      setShowConfirm(dest)
     }
   }
 
@@ -76,7 +76,7 @@ export default function CreateTrip() {
       name: prev.name || `Trip to ${dest.name}`,
       description: prev.description || dest.description,
     }))
-    setImageUrl('')
+    setShowConfirm(dest)
   }
 
   const handleGetRoute = (e, dest) => {
@@ -142,32 +142,12 @@ export default function CreateTrip() {
     return `₹${num}`
   }
 
-  const handleGenerateImage = async () => {
-    if (!form.destination) {
-      alert('Please select a destination to generate an image')
-      return
-    }
-    setIsGenerating(true)
-    try {
-      const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(form.destination)}`)
-      const data = await resp.json()
-      if (data.originalimage && data.originalimage.source) {
-        setImageUrl(data.originalimage.source)
-      } else {
-        alert('Could not find a representative image for this destination. Try a different destination.')
-      }
-    } catch (err) {
-      console.error('Error generating image', err)
-      alert('Error fetching image. Please try again.')
-    } finally {
-      setIsGenerating(false)
-    }
-  }
+
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!form.destination) return
-    addTrip({ ...form, imageUrl })
+    addTrip({ ...form })
     navigate('/trips')
   }
 
@@ -424,34 +404,12 @@ export default function CreateTrip() {
             </div>
           </div>
 
-          {/* Trip Image Sidebar */}
+          {/* Destination Info Sidebar */}
           <div>
-            <div className="image-upload-card">
-              <div className="image-placeholder" style={imageUrl ? { background: `url(${imageUrl}) center/cover no-repeat`, color: 'transparent' } : {}}>
-                {!imageUrl && <ImagePlus size={48} />}
-              </div>
-              <div className="image-upload-actions">
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  {imageUrl ? 'Destination image loaded!' : 'Add a cover image for your trip'}
-                </p>
-                <button 
-                  type="button" 
-                  className="btn btn-accent btn-sm" 
-                  style={{ width: '100%' }}
-                  onClick={handleGenerateImage}
-                  disabled={isGenerating}
-                >
-                  <Sparkles size={16} />
-                  {isGenerating ? 'Generating...' : (imageUrl ? 'Regenerate Image' : 'Generate Image')}
-                </button>
-              </div>
-            </div>
-
-            {/* Selected destination info sidebar card */}
             {form.destination && (() => {
               const dest = DESTINATIONS.find(d => d.name === form.destination)
               return dest ? (
-                <div className="card destination-sidebar-card">
+                <div className="card destination-sidebar-card" style={{ marginTop: 0 }}>
                   <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <MapPin size={16} style={{ color: 'var(--primary)' }} />
                     {dest.name}
@@ -505,6 +463,66 @@ export default function CreateTrip() {
           </div>
         </div>
       </form>
+
+      {/* Destination Confirmation Popup */}
+      {showConfirm && (
+        <div className="confirm-overlay" onClick={() => setShowConfirm(null)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="confirm-close" onClick={() => setShowConfirm(null)}>
+              <X size={18} />
+            </button>
+            <div className="confirm-icon-wrap">
+              <CheckCircle size={36} />
+            </div>
+            <h3 className="confirm-title">Destination Selected!</h3>
+            <div className="confirm-dest-name">
+              <MapPin size={18} />
+              {showConfirm.name}, {showConfirm.state}
+            </div>
+            <p className="confirm-desc">{showConfirm.description}</p>
+            <div className="confirm-meta">
+              <div className="confirm-meta-item">
+                <IndianRupee size={14} />
+                {formatBudget(showConfirm.budgetRange.min)} – {formatBudget(showConfirm.budgetRange.max)}
+              </div>
+              <div className="confirm-meta-item">
+                <Calendar size={14} />
+                {showConfirm.bestSeason}
+              </div>
+              <div className="confirm-meta-item">
+                <span className="rec-category-badge" style={{ background: `${getCategoryColor(showConfirm.category)}18`, color: getCategoryColor(showConfirm.category) }}>
+                  {getCategoryLabel(showConfirm.category)}
+                </span>
+              </div>
+            </div>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="route-btn confirm-action-btn"
+                onClick={(e) => { handleGetRoute(e, showConfirm) }}
+              >
+                <Navigation size={18} />
+                Get Route
+              </button>
+              <button
+                type="button"
+                className="hotel-btn confirm-action-btn"
+                onClick={(e) => { handleFindHotels(e, showConfirm) }}
+              >
+                <Hotel size={18} />
+                Find Hotels
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-gradient confirm-continue-btn"
+              onClick={() => setShowConfirm(null)}
+            >
+              Continue Planning
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
