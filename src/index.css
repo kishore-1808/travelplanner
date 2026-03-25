@@ -1111,6 +1111,55 @@ body {
   letter-spacing: 0.3px;
 }
 
+/* ===== ROUTE BUTTON ===== */
+.rec-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.route-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: linear-gradient(135deg, #34A853, #0F9D58);
+  color: white;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(15, 157, 88, 0.25);
+  letter-spacing: 0.2px;
+}
+
+.route-btn:hover {
+  background: linear-gradient(135deg, #2E9B4A, #0D8C4F);
+  box-shadow: 0 4px 12px rgba(15, 157, 88, 0.4);
+  transform: translateY(-1px);
+}
+
+.route-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(15, 157, 88, 0.3);
+}
+
+.route-btn-sidebar {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 16px;
+  font-size: 13px;
+  margin-top: 16px;
+  border-radius: var(--radius-sm);
+  gap: 8px;
+}
+
 /* ===== DESTINATION SIDEBAR CARD ===== */
 .destination-sidebar-card {
   margin-top: 16px;

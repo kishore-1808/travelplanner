@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown, Navigation } from 'lucide-react'
 import { useTrips } from '../hooks/useStore'
 import { DESTINATION_CATEGORIES, DESTINATIONS } from '../data/destinationData'
 
@@ -79,6 +79,13 @@ export default function CreateTrip() {
       description: prev.description || dest.description,
     }))
     setImageUrl('')
+  }
+
+  const handleGetRoute = (e, dest) => {
+    e.stopPropagation()
+    const { lat, lng } = dest.coordinates
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=&travelmode=transit`
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const getCategoryLabel = (catId) => {
@@ -324,15 +331,26 @@ export default function CreateTrip() {
                         </span>
                       </div>
                       <p className="rec-card-desc">{dest.description}</p>
-                      <div className="rec-card-meta">
-                        <span className="rec-meta-item">
-                          <IndianRupee size={12} />
-                          {formatBudget(dest.budgetRange.min)} – {formatBudget(dest.budgetRange.max)}
-                        </span>
-                        <span className="rec-meta-item">
-                          <Calendar size={12} />
-                          {dest.bestSeason}
-                        </span>
+                      <div className="rec-card-bottom">
+                        <div className="rec-card-meta">
+                          <span className="rec-meta-item">
+                            <IndianRupee size={12} />
+                            {formatBudget(dest.budgetRange.min)} – {formatBudget(dest.budgetRange.max)}
+                          </span>
+                          <span className="rec-meta-item">
+                            <Calendar size={12} />
+                            {dest.bestSeason}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="route-btn"
+                          onClick={(e) => handleGetRoute(e, dest)}
+                          title={`Get route to ${dest.name}`}
+                        >
+                          <Navigation size={13} />
+                          Get Route
+                        </button>
                       </div>
                       <div className="rec-card-state">{dest.state}</div>
                     </div>
@@ -411,6 +429,15 @@ export default function CreateTrip() {
                       </span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="route-btn route-btn-sidebar"
+                    onClick={(e) => handleGetRoute(e, dest)}
+                    title={`Get route to ${dest.name}`}
+                  >
+                    <Navigation size={15} />
+                    Get Route to {dest.name}
+                  </button>
                 </div>
               ) : null
             })()}
