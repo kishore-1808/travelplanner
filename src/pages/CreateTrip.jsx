@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown, Navigation } from 'lucide-react'
+import { ArrowLeft, ImagePlus, Sparkles, MapPin, IndianRupee, Compass, Star, Calendar, ChevronDown, Navigation, Hotel } from 'lucide-react'
 import { useTrips } from '../hooks/useStore'
 import { DESTINATION_CATEGORIES, DESTINATIONS } from '../data/destinationData'
 
@@ -85,6 +85,21 @@ export default function CreateTrip() {
     e.stopPropagation()
     const destination = encodeURIComponent(`${dest.name}, ${dest.state}, India`)
     const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=transit`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleFindHotels = (e, dest) => {
+    e.stopPropagation()
+    const budget = parseFloat(form.budget)
+    let priceTag = ''
+    if (budget > 0) {
+      const perNight = budget / 5
+      if (perNight <= 2000) priceTag = 'budget+'
+      else if (perNight <= 5000) priceTag = 'mid+range+'
+      else priceTag = 'luxury+'
+    }
+    const query = encodeURIComponent(`${priceTag}hotels near ${dest.name}, ${dest.state}, India`)
+    const url = `https://www.google.com/maps/search/${query}`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
@@ -342,15 +357,26 @@ export default function CreateTrip() {
                             {dest.bestSeason}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          className="route-btn"
-                          onClick={(e) => handleGetRoute(e, dest)}
-                          title={`Get route to ${dest.name}`}
-                        >
-                          <Navigation size={13} />
-                          Get Route
-                        </button>
+                        <div className="rec-card-actions">
+                          <button
+                            type="button"
+                            className="route-btn"
+                            onClick={(e) => handleGetRoute(e, dest)}
+                            title={`Get route to ${dest.name}`}
+                          >
+                            <Navigation size={13} />
+                            Route
+                          </button>
+                          <button
+                            type="button"
+                            className="hotel-btn"
+                            onClick={(e) => handleFindHotels(e, dest)}
+                            title={`Find hotels near ${dest.name}`}
+                          >
+                            <Hotel size={13} />
+                            Hotels
+                          </button>
+                        </div>
                       </div>
                       <div className="rec-card-state">{dest.state}</div>
                     </div>
@@ -429,15 +455,26 @@ export default function CreateTrip() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="route-btn route-btn-sidebar"
-                    onClick={(e) => handleGetRoute(e, dest)}
-                    title={`Get route to ${dest.name}`}
-                  >
-                    <Navigation size={15} />
-                    Get Route to {dest.name}
-                  </button>
+                  <div className="sidebar-action-btns">
+                    <button
+                      type="button"
+                      className="route-btn route-btn-sidebar"
+                      onClick={(e) => handleGetRoute(e, dest)}
+                      title={`Get route to ${dest.name}`}
+                    >
+                      <Navigation size={15} />
+                      Get Route
+                    </button>
+                    <button
+                      type="button"
+                      className="hotel-btn hotel-btn-sidebar"
+                      onClick={(e) => handleFindHotels(e, dest)}
+                      title={`Find hotels near ${dest.name}`}
+                    >
+                      <Hotel size={15} />
+                      Find Hotels
+                    </button>
+                  </div>
                 </div>
               ) : null
             })()}
