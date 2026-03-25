@@ -83,8 +83,8 @@ export default function CreateTrip() {
 
   const handleGetRoute = (e, dest) => {
     e.stopPropagation()
-    const { lat, lng } = dest.coordinates
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=&travelmode=transit`
+    const destination = encodeURIComponent(`${dest.name}, ${dest.state}, India`)
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=transit`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
